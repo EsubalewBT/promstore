@@ -19,3 +19,21 @@ export async function getLatestProducts(): Promise<Product[]> {
 
   return convertToPlainObject(products);
 }
+// get single product by slug
+export async function getProductBySlug(slug: string): Promise<Product | null> {
+  const product = await prisma.product.findFirst({
+    where: { slug },
+  });
+
+  if (!product) {
+    return null;
+  }
+
+  const normalizedProduct: Product = {
+    ...product,
+    price: Number(product.price),
+    rating: Number(product.rating),
+  };
+
+  return convertToPlainObject(normalizedProduct);
+}
