@@ -1,7 +1,19 @@
 import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 
-let prisma: PrismaClient;
+const extendClient = (client: PrismaClient) =>
+  client.$extends({
+    result: {
+      product: {
+        price: { compute: (p) => p.price.toString() },
+        rating: { compute: (p) => p.rating.toString() },
+      },
+    },
+  });
+
+type ExtendedPrismaClient = ReturnType<typeof extendClient>;
+
+let prisma: ExtendedPrismaClient;
 
 if (process.env.NODE_ENV === "production") {
   // Production (Neon + Serverless)
@@ -15,26 +27,15 @@ if (process.env.NODE_ENV === "production") {
     connectionString: process.env.DATABASE_URL!,
   });
 
-  const adapter = new PrismaNeon(pool);
+  // Prisma's Neon adapter typing expects a PoolConfig, but the runtime accepts the Pool instance.
+  // Cast to any to satisfy TypeScript while keeping the correct runtime behavior.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adapter = new PrismaNeon(pool as any);
 
-  prisma = new PrismaClient({ adapter }).$extends({
-    result: {
-      product: {
-        price: { compute: (p) => p.price.toString() },
-        rating: { compute: (p) => p.rating.toString() },
-      },
-    },
-  });
+  prisma = extendClient(new PrismaClient({ adapter }));
 } else {
   // Local dev (TCP)
-  prisma = new PrismaClient().$extends({
-    result: {
-      product: {
-        price: { compute: (p) => p.price.toString() },
-        rating: { compute: (p) => p.rating.toString() },
-      },
-    },
-  });
+  prisma = extendClient(new PrismaClient());
 }
 
 export { prisma };
